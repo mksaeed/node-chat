@@ -5,9 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Chat Application</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
+<body class="chat">
+    <div class="chat__sidebar">
+        <h3>People</h3>
+        <div id="users"></div>
+    </div>
+
+    <div class="chat__main">
+        <ol id="messages" class="chat__messages"></ol>
+
+        <div class="chat__footer">
+            <form id="message-form">
+                    <input name="message" type="text" placeholder="Enter Your Message" autofocus autocomplete="off">
+                    <button>Send</button>
+                </form>
+                <button id="send-location">Send Location</button>
+        </div>
+    </div>
+
     
+
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/libs/jquery-3.2.0.min.js"></script>
+    <script src="/js/libs/moment.js"></script>
+    <script src="/js/index.js"></script>
 </body>
-<p>Welcome To NodeJs Chat App</p>
+
 </html>
