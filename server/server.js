@@ -7,6 +7,8 @@ const socketIO = require('socket.io');
 
 //local Packages
 const {generateMessage, generateLocationMessage} = require('./utils/message');
+const {isRealString} = require('./utils/validation');
+const {Users} = require('./utils/users');
 
 //setting up relative path for public folder
 const publicPath = path.join(__dirname, '../public');
@@ -20,6 +22,7 @@ var server = http.createServer(app);
 
 //we pass the server paramerter because we gona access the server via server argument. and we gona get back is our web socket io
 var io = socketIO(server);
+var users = new Users();
 
 //Middleware for html page 
 app.use(express.static(publicPath));
@@ -35,7 +38,7 @@ io.on('connection', (socket)=>{
     //     text: 'Welcome To Chat Application',
     //     createdAt: new Date().getTime()
     // });
-    socket.emit('newMessage',generateMessage('Admin', 'Welcome To Chat Application'));
+    // socket.emit('newMessage',generateMessage('Admin', 'Welcome To Chat Application'));
 
     //socket.broadcast.emit from admin to rest of chat users that new user joined
 
@@ -44,7 +47,29 @@ io.on('connection', (socket)=>{
     //     text: 'New User Joined',
     //     createdAt: new Date().getTime()
     // });
-    socket.broadcast.emit('newMessage', generateMessage('Admin', 'New User Joined'));
+    // socket.broadcast.emit('newMessage', generateMessage('Admin', 'New User Joined'));
+
+    socket.on('join', (params, callback)=>{
+        params.room = 'INFOSYS'; //hard coded room name
+        if(!isRealString(params.name) || !isRealString(params.room)){
+            callback('Name And Room Name Are Required');
+        }
+
+        socket.join(params.room); //This is for People for the same room
+        users.removeUser(socket.id);
+        users.addUser(socket.id, params.name, params.room);
+        // socket.leave('Room Name') //To kick out of the room
+
+        //io.emit  ===> io.to('Room Name').emit // this will send message to all the ppl Connected to that room
+        //socket.broadcast.emit  ===>  socket.broadcast.to('Room Name').emit  //This will send message to all the ppls of room expect to the sender
+        //socket.emit //There is no reason to target them by room
+    io.to(params.room).emit('updateUserList', users.getUserList(params.room));
+    socket.emit('newMessage',generateMessage('Admin', 'Welcome To Chat Application'));
+    socket.broadcast.to(params.room).emit('newMessage', generateMessage('Admin', `${params.name} has Joined`));
+    
+        
+        callback();
+    });
 
 
     // // similar to lister event but it emit event instead of listening
@@ -67,7 +92,7 @@ io.on('connection', (socket)=>{
     // })
 
     socket.on('createMessage',(message, callback)=>{
-        console.log('Create Message', message);
+        // console.log('Create Message', message);
 
         // socket.emit emit message to single connection io.emit emits an event to every connection
         // io.emit('newMessage',{
@@ -75,16 +100,33 @@ io.on('connection', (socket)=>{
         //     text : message.text,
         //     createdAt : new Date().getTime()
         // });
-        io.emit('newMessage', generateMessage(message.from, message.text));
+        var user = users.getUser(socket.id);
+
+        if(user && isRealString(message.text)){
+
+            io.to(user.room).emit('newMessage', generateMessage(user.name, message.text));
+        }
+        
         callback();
     });
      socket.on('createLocationMessage', (coords)=>{
-            io.emit('newLocationMessage', generateLocationMessage('Admin', coords.latitute, coords.longitude));
+         var user = users.getUser(socket.id);
+
+        if(user){
+            io.to(user.room).emit('newLocationMessage', generateLocationMessage(user.name, coords.latitute, coords.longitude));
+        }
+            
         });
 
     //when user was disconnected from the server
 socket.on('disconnect', ()=>{
-    console.log('Disconnected from the server');
+    // console.log('Disconnected from the server');
+    var user = users.removeUser(socket.id);
+
+    if(user){
+        io.to(user.room).emit('updateUserList', users.getUserList(user.room));
+        io.to(user.room).emit('newMessage', generateMessage('Admin', `${user.name} has left`));
+    }
 });
 
 });
